@@ -56,12 +56,18 @@
         height: 100%;
       }
 
+      .leaflet-popup-content {
+        max-width: 75vw;
+      }
       .leaflet-popup-content h4 {
         font-size: 1.1em;
         margin-bottom: 1em;
       }
+      .leaflet-popup-content div {
+        display: flex;
+      }
       .leaflet-popup-content figure {
-        margin: 1em 0;
+        margin: 0 0.2em;
       }
       .leaflet-popup-content figure img {
         width: 100%;
@@ -157,23 +163,35 @@
           title: `#${d.tagnumber}`,
         }),
         onEachFeature: ({properties: d}, layer) => {
-          layer.bindPopup(html`
-            <h4>#${d.tagnumber}</h4>
+          layer.bindPopup(
+            html`
+              <h4>#${d.tagnumber}</h4>
 
-            <figure>
-              <a href="${d.mysteryImageUrl}" target="_new">
-                <img src="${d.mysteryImageUrl}">
-              </a>
-              <figcaption>${d.hint} (${d.mysteryPlayer} at ${new Date(d.mysteryTime * 1000)})</figcaption>
-            </figure>
+              <div>
+                <figure>
+                  <a href="${d.mysteryImageUrl}" target="_new">
+                    <img src="${d.mysteryImageUrl}">
+                  </a>
+                  <figcaption>${d.hint}</figcaption>
+                </figure>
 
-            <figure>
-              <a href="${d.foundImageUrl}" target="_new">
-                <img src="${d.foundImageUrl}">
-              </a>
-              <figcaption>${d.foundLocation} (${d.foundPlayer} at ${new Date(d.foundTime * 1000)})</figcaption>
-            </figure>
-          `);
+                <figure>
+                  <a href="${d.foundImageUrl}" target="_new">
+                    <img src="${d.foundImageUrl}">
+                  </a>
+                  <figcaption>${d.foundLocation}</figcaption>
+                </figure>
+              </div>
+
+              <p>
+                Posted by ${d.mysteryPlayer} at ${new Date(d.mysteryTime * 1000)}.<br>
+                Found by ${d.foundPlayer} at ${new Date(d.foundTime * 1000)}.
+              </p>
+            `,
+            {
+              maxWidth: 600,
+            }
+          );
         },
       }).addTo(Map);
 
