@@ -1,0 +1,217 @@
+<!doctype html>
+<html>
+  <head>
+    <title>🚲 Seattle Bike Tags</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+
+    <link rel="stylesheet" href="leaflet-1.9.4.css" />
+    <script src="leaflet-1.9.4.js"></script>
+
+    <style type="text/css">
+      body {
+        font-family: "Helvetica Neue", Arial, Helvetica, sans-serif;
+        margin: 0;
+        padding: 0;
+      }
+      h1, #whatisthis {
+        position: absolute;
+        z-index: 1000;
+        opacity: 0.6;
+        top: 0;
+        left: 50px;
+        color: black;
+        text-shadow: white 0 0 3px;
+        margin: 0;
+        padding: 0;
+      }
+      .overlay:hover h1, .overlay:hover #whatisthis {
+        opacity: 1;
+      }
+      h1 {
+        font-weight: normal;
+        font-size: 40px;
+        line-height: 40px;
+        color: #ce2029;
+        padding: 0;
+        margin: 0;
+        white-space: nowrap;
+      }
+      h1 a {
+        color: #ce2029;
+        text-decoration: none;
+        cursor: pointer;
+      }
+      h1 small {
+        font-size: 20px;
+        line-height: 40px;
+        color: black;
+        vertical-align: top;
+      }
+      #whatisthis {
+        top: 40px;
+        max-width: 24em;
+      }
+      html, body, #map {
+        height: 100%;
+      }
+
+      .leaflet-popup-content h4 {
+        font-size: 1.1em;
+        margin-bottom: 1em;
+      }
+      .leaflet-popup-content figure {
+        margin: 1em 0;
+      }
+      .leaflet-popup-content figure img {
+        width: 100%;
+      }
+
+      .whatisthis-toggle-default h1 small, .whatisthis-toggle-default #whatisthis {
+        visibility: hidden;
+      }
+      @media only screen and (max-width: 800px) {
+        h1 small, #whatisthis {
+          visibility: hidden;
+        }
+        .whatisthis-toggle-default h1 small, .whatisthis-toggle-default #whatisthis {
+          visibility: visible;
+        }
+      }
+
+      a.with-icon {
+        text-decoration: none;
+      }
+      a.with-icon > span {
+        text-decoration: underline;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="overlay">
+      <h1>
+        <a onclick="document.body.classList.toggle('whatisthis-toggle-default')">🚲 </a>
+        <small>Seattle Bike Tags</small>
+      </h1>
+      <div id="whatisthis">
+        A map of all locations in the
+        <a href="https://seattle.biketag.org">Seattle bike tag game</a>.
+        For exploring, or checking if you're repeating a spot!
+        <br>
+        <small>
+          Data last updated at <span id="updated">an unknown time</span> //
+          <br>
+          A mini-project by <a href="https://tsibley.net">Thomas Sibley</a>.
+        </small>
+      </div>
+    </div>
+    <div id="map"></div>
+    <script type="module">
+      'use strict';
+
+      function esc(text) {
+        let div = document.createElement("div");
+        div.textContent = text;
+        return div.innerHTML;
+      }
+
+      /* Safe-by-construction HTML from strings via template literals.
+       * <https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Template_literals#tagged_templates>
+       */
+      function html(literalParts, ...exprParts) {
+        /* The tagged template literal is given to us as two lists: the literal parts
+         * and the interpolated expression values (i.e. the evaluation of … inside
+         * ${…}).  We zip and concatenate the two lists together while escaping
+         * the interpolated values.
+         *
+         * There is always one more literal part than expression part—though it may
+         * be the empty string—and the whole template literal starts with the first
+         * literal part.
+         */
+        return literalParts.slice(1).reduce(
+          (safe, literalPart, idx) => `${safe}${esc(exprParts[idx])}${literalPart}`,
+          literalParts[0]
+        );
+      }
+
+
+      let Seattle = [47.63323873424374, -122.32006072998048];
+
+      let Map = L.map('map').setView(Seattle, 12);
+
+      let streets = L.tileLayer('https://tiles.stadiamaps.com/tiles/stamen_toner_lite/{z}/{x}/{y}{r}.png', {
+        attribution: `
+          &copy; <a href="https://stadiamaps.com/" target="_blank">Stadia Maps</a>
+          &copy; <a href="https://www.stamen.com/" target="_blank">Stamen Design</a>
+          &copy; <a href="https://openmaptiles.org/" target="_blank">OpenMapTiles</a>
+          &copy; <a href="https://www.openstreetmap.org/about/" target="_blank">OpenStreetMap contributors</a>
+        `,
+        subdomains: 'abcd',
+        minZoom: 0,
+        maxZoom: 20
+      }).addTo(Map);
+
+      let tagLayer = L.geoJson(null, {
+        pointToLayer: ({properties: d}, latLon) => L.circle(latLon, {
+          radius: 5,
+          title: `#${d.tagnumber}`,
+        }),
+        onEachFeature: ({properties: d}, layer) => {
+          layer.bindPopup(html`
+            <h4>#${d.tagnumber}</h4>
+
+            <figure>
+              <a href="${d.mysteryImageUrl}" target="_new">
+                <img src="${d.mysteryImageUrl}">
+              </a>
+              <figcaption>${d.hint} (${d.mysteryPlayer} at ${new Date(d.mysteryTime * 1000)})</figcaption>
+            </figure>
+
+            <figure>
+              <a href="${d.foundImageUrl}" target="_new">
+                <img src="${d.foundImageUrl}">
+              </a>
+              <figcaption>${d.foundLocation} (${d.foundPlayer} at ${new Date(d.foundTime * 1000)})</figcaption>
+            </figure>
+          `);
+        },
+      }).addTo(Map);
+
+
+      // Load the data
+      async function load() {
+        let res = await fetch('cgi-bin/tags.cgi', {cache: 'no-cache'});
+
+        let updated = res.headers.get("Last-Modified");
+
+        document.getElementById("updated").textContent = updated
+          ? new Date(updated)
+          : "an unknown time";
+
+        let tags = await res.json();
+
+        for (let tag of tags) {
+        console.log(tag);
+          tagLayer.addData({
+            type: "Feature",
+            properties: tag,
+            geometry: {
+              type: "Point",
+              coordinates: [tag.gps.long, tag.gps.lat],
+            },
+          });
+        }
+      }
+
+
+      // Close popup on Escape
+      document.addEventListener("keyup", ev => {
+        if (ev.keyCode == 27) // Esc
+          Map.closePopup();
+      }, false);
+
+
+      await load();
+    </script>
+  </body>
+</html>
