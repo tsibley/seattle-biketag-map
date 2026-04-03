@@ -209,7 +209,6 @@
         let tags = await res.json();
 
         for (let tag of tags) {
-        console.log(tag);
           tagLayer.addData({
             type: "Feature",
             properties: tag,
